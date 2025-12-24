@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: rizza_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rizza
+      POSTGRES_PASSWORD: rizza
+      POSTGRES_DB: rizza_booking
+    ports:
+      - "5433:5432"
+    volumes:
+      - rizza_pg:/var/lib/postgresql/data
+
+volumes:
+  rizza_pg:

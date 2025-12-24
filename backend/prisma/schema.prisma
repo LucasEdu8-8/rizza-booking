@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ServiceType {
+  WASH_FULL
+  REVIEW
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model VehicleMake {
+  id        Int            @id @default(autoincrement())
+  name      String         @unique
+  models    VehicleModel[]
+  bookings  Booking[] // <-- inverso
+  createdAt DateTime       @default(now())
+}
+
+model VehicleModel {
+  id        Int         @id @default(autoincrement())
+  makeId    Int
+  name      String
+  imageKey  String
+  make      VehicleMake @relation(fields: [makeId], references: [id], onDelete: Cascade)
+  bookings  Booking[] // <-- inverso
+  createdAt DateTime    @default(now())
+
+  @@unique([makeId, name])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  serviceType   ServiceType
+  makeId        Int
+  modelId       Int
+  date          DateTime
+  time          String
+  customerName  String
+  customerPhone String
+  customerEmail String
+  plate         String?
+  notes         String?
+  status        BookingStatus @default(CONFIRMED)
+  createdAt     DateTime      @default(now())
+
+  make  VehicleMake  @relation(fields: [makeId], references: [id])
+  model VehicleModel @relation(fields: [modelId], references: [id])
+
+  @@index([date, time, status])
+}

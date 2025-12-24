@@ -1,0 +1,67 @@
+:root{
+  --bg:#070707;
+  --panel:#0c0c0c;
+  --chrome1:#bfc5cc;
+  --chrome2:#6a7077;
+  --text:#f1f1f1;
+  --muted:#b9b9b9;
+  --line:#1c1c1c;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
+a{ color:inherit; text-decoration:none; }
+
+.center-screen{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.card{
+  width:min(520px, 92vw);
+  background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:28px;
+  backdrop-filter: blur(8px);
+}
+
+.btn{
+  width:100%;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid var(--chrome2);
+  background:transparent;
+  color:var(--text);
+  cursor:pointer;
+}
+.btn:hover{ border-color: var(--chrome1); }
+.btn:disabled{ opacity:0.45; cursor:not-allowed; }
+
+.select{
+  width:100%;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#0a0a0a;
+  color:var(--text);
+  outline:none;
+}
+.select:focus{ border-color: var(--chrome1); box-shadow: 0 0 0 3px rgba(191,197,204,0.12); }
+
+.title{
+  font-size:14px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 14px;
+}
+
+/* evita scroll no ecrã de seleção do veículo */
+body.no-scroll {
+  overflow: hidden;
+}
+
