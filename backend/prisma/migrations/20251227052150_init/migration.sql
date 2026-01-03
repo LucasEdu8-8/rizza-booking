@@ -2,7 +2,7 @@
 CREATE TYPE "ServiceType" AS ENUM ('WASH_FULL', 'REVIEW');
 
 -- CreateEnum
-CREATE TYPE "BookingStatus" AS ENUM ('CONFIRMED', 'CANCELLED');
+CREATE TYPE "BookingStatus" AS ENUM ('PENDING', 'CONFIRMED', 'CANCELLED');
 
 -- CreateTable
 CREATE TABLE "VehicleMake" (
@@ -37,8 +37,11 @@ CREATE TABLE "Booking" (
     "customerEmail" TEXT NOT NULL,
     "plate" TEXT,
     "notes" TEXT,
-    "status" "BookingStatus" NOT NULL DEFAULT 'CONFIRMED',
+    "status" "BookingStatus" NOT NULL DEFAULT 'PENDING',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "confirmToken" TEXT,
+    "tokenExpires" TIMESTAMP(3),
+    "confirmedAt" TIMESTAMP(3),
 
     CONSTRAINT "Booking_pkey" PRIMARY KEY ("id")
 );
@@ -48,6 +51,9 @@ CREATE UNIQUE INDEX "VehicleMake_name_key" ON "VehicleMake"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VehicleModel_makeId_name_key" ON "VehicleModel"("makeId", "name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Booking_confirmToken_key" ON "Booking"("confirmToken");
 
 -- CreateIndex
 CREATE INDEX "Booking_date_time_status_idx" ON "Booking"("date", "time", "status");

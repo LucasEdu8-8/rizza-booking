@@ -8,6 +8,7 @@ export interface BookingDraft {
   makeName?: string;
   modelId?: number;
   modelName?: string;
+  vehicleYear?: number;
   imageKey?: string;
   date?: string;
   time?: string;

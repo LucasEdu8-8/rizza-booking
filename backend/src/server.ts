@@ -4,6 +4,8 @@ import { env } from "./env.js";
 import { vehiclesRoutes } from "./routes/vehicles.js";
 import { availabilityRoutes } from "./routes/availability.js";
 import { bookingsRoutes } from "./routes/bookings.js";
+import { verifyMailer } from "./services/email.js";
+import { vehicleImageRoutes } from "./routes/vehicleImage.js"
 
 const app = Fastify({ logger: true });
 
@@ -14,6 +16,12 @@ app.get("/api/health", async () => ({ status: "ok" }));
 await app.register(vehiclesRoutes);
 await app.register(availabilityRoutes);
 await app.register(bookingsRoutes);
+await app.register(vehicleImageRoutes);
+
+await verifyMailer().catch((e) => {
+  app.log.error({ err: e }, "SMTP verify failed");
+});
+
 
 app.listen({ port: env.PORT, host: "0.0.0.0" }).catch((err) => {
   app.log.error(err);

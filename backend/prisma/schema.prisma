@@ -13,6 +13,7 @@ enum ServiceType {
 }
 
 enum BookingStatus {
+  PENDING
   CONFIRMED
   CANCELLED
 }
@@ -26,12 +27,20 @@ model VehicleMake {
 }
 
 model VehicleModel {
-  id        Int         @id @default(autoincrement())
-  makeId    Int
-  name      String
-  imageKey  String
+  id       Int    @id @default(autoincrement())
+  makeId   Int
+  name     String
+  imageKey String
+
+  // VehicleImagery mapping
+  viBrand   String?
+  viModel   String?
+  viYear    Int?
+  viVariant String?
+  viTrim    String?
+
   make      VehicleMake @relation(fields: [makeId], references: [id], onDelete: Cascade)
-  bookings  Booking[] // <-- inverso
+  bookings  Booking[] // <-- inverso obrigatório
   createdAt DateTime    @default(now())
 
   @@unique([makeId, name])
@@ -42,6 +51,8 @@ model Booking {
   serviceType   ServiceType
   makeId        Int
   modelId       Int
+  vehicleYear   Int?           
+
   date          DateTime
   time          String
   customerName  String
@@ -49,8 +60,12 @@ model Booking {
   customerEmail String
   plate         String?
   notes         String?
-  status        BookingStatus @default(CONFIRMED)
+  status        BookingStatus @default(PENDING)
   createdAt     DateTime      @default(now())
+
+  confirmToken String?   @unique
+  tokenExpires DateTime?
+  confirmedAt  DateTime?
 
   make  VehicleMake  @relation(fields: [makeId], references: [id])
   model VehicleModel @relation(fields: [modelId], references: [id])

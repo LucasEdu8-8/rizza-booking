@@ -4,8 +4,9 @@ import { HttpClient } from "@angular/common/http";
 import { Router } from "@angular/router";
 import { FormsModule } from "@angular/forms";
 import { BookingDraftStore } from "../state/booking-draft.store";
+import { APP_CONFIG } from "../shared/config";
 
-const API = "http://localhost:3000";
+const API = APP_CONFIG.API_BASE;
 type Slot = { time: string; available: boolean };
 
 function pad2(n: number) { return String(n).padStart(2, "0"); }
@@ -44,11 +45,19 @@ function firstWeekdayMon0(y: number, m0: number) {
   template: `
   <div class="center-screen">
     <div class="card" style="width:min(920px, 96vw);">
+    
+    <div *ngIf="isSubmitting" class="loading-overlay">
+      <div class="loading-box">
+        <div class="loading-text">A enviar email…</div>
+        <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+      </div>
+    </div>
+
       <div class="title">Escolhe o dia e a hora</div>
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-        <!-- ESQUERDA: calendário + slots -->
-        <div>
+        <!-- ESQUERDA: calendário + slots + resumo -->
+        <div style="display:flex; flex-direction:column;">
           <label class="title" style="display:block; margin-bottom:8px;">Data</label>
 
           <!-- Campo calendário -->
@@ -93,6 +102,8 @@ function firstWeekdayMon0(y: number, m0: number) {
                   <button *ngIf="cell.day"
                     class="btn"
                     style="width:100%; padding:10px 0;"
+                    [disabled]="isPast(cell.iso!)"
+                    [style.opacity]="isPast(cell.iso!) ? '0.35' : '1'"
                     [style.borderColor]="cell.iso === date ? 'var(--chrome1)' : 'var(--chrome2)'"
                     (click)="pickDate(cell.iso!)">
                     {{ cell.day }}
@@ -123,38 +134,92 @@ function firstWeekdayMon0(y: number, m0: number) {
               {{ s.time }}
             </button>
           </div>
+
+          <!-- RESUMO à esquerda -->
+          <div style="height:14px"></div>
+          <div style="border-top:1px solid var(--line); padding-top:14px; color:var(--muted); font-size:14px">
+            <div><b>Resumo</b></div>
+            <div>Serviço: {{ serviceLabel }}</div>
+            <div>Veículo: {{ vehicleLabel }}</div>
+            <div>Data/Hora: {{ formatDMY(date) }} {{ time || '—' }}</div>
+          </div>
         </div>
 
         <!-- DIREITA: form -->
         <div>
           <label class="title" style="display:block; margin-bottom:8px;">Dados do cliente</label>
 
-          <input class="select" placeholder="Nome" [(ngModel)]="customerName">
+          <input
+            class="select"
+            placeholder="Nome"
+            name="customerName"
+            [(ngModel)]="customerName"
+            #name="ngModel"
+            required
+            minlength="2"
+          >
+          <div class="field-error" *ngIf="name.invalid && (name.dirty || name.touched)">
+            <span *ngIf="name.errors?.['required']">Nome obrigatório.</span>
+            <span *ngIf="name.errors?.['minlength']">Nome demasiado curto.</span>
+          </div>
+
           <div style="height:10px"></div>
 
-          <input class="select" placeholder="Telemóvel" [(ngModel)]="customerPhone">
+          <input
+            class="select"
+            placeholder="Telemóvel"
+            type="tel"
+            inputmode="tel"
+            autocomplete="tel"
+            name="customerPhone"
+            [(ngModel)]="customerPhone"
+            #phone="ngModel"
+            required
+            pattern="^(\\+351)?[ ]*9\\d{2}[ ]*\\d{3}[ ]*\\d{3}$|^(\\+351)?9\\d{8}$"
+          >
+          <div class="field-error" *ngIf="phone.invalid && (phone.dirty || phone.touched)">
+            <span *ngIf="phone.errors?.['required']">Telemóvel obrigatório.</span>
+            <span *ngIf="phone.errors?.['pattern']">Formato inválido (ex: 912345678 ou +351 912345678).</span>
+          </div>
+
           <div style="height:10px"></div>
 
-          <input class="select" placeholder="Email" [(ngModel)]="customerEmail">
+          <input
+            class="select"
+            placeholder="Email"
+            type="email"
+            autocomplete="email"
+            name="customerEmail"
+            [(ngModel)]="customerEmail"
+            #email="ngModel"
+            required
+            email
+          >
+          <div class="field-error" *ngIf="email.invalid && (email.dirty || email.touched)">
+            <span *ngIf="email.errors?.['required']">Email obrigatório.</span>
+            <span *ngIf="email.errors?.['email']">Email inválido.</span>
+          </div>
+
           <div style="height:10px"></div>
 
-          <input class="select" placeholder="Matrícula (opcional)" [(ngModel)]="plate">
+          <input class="select" placeholder="Matrícula (opcional)" name="plate" [(ngModel)]="plate">
           <div style="height:10px"></div>
 
-          <textarea class="select" style="min-height:88px; resize:vertical" placeholder="Observações (opcional)" [(ngModel)]="notes"></textarea>
+          <textarea
+            class="select"
+            style="min-height:88px; resize:vertical"
+            placeholder="Observações (opcional)"
+            name="notes"
+            [(ngModel)]="notes"
+          ></textarea>
 
           <div style="height:14px"></div>
-          <button class="btn" (click)="confirm()" [disabled]="!canConfirm()">Confirmar Marcação</button>
+
+          <!-- Tooltip wrapper (porque disabled não tem hover) -->
+          <div class="tooltip-wrap" [class.is-disabled]="!canConfirm()" [attr.data-tip]="confirmTooltip">
+            <button class="btn" (click)="confirm()" [disabled]="!canConfirm()">Confirmar Marcação</button>
+          </div>
         </div>
-      </div>
-
-      <div style="height:14px"></div>
-
-      <div style="border-top:1px solid var(--line); padding-top:14px; color:var(--muted); font-size:14px">
-        <div><b>Resumo</b></div>
-        <div>Serviço: {{ serviceLabel }}</div>
-        <div>Veículo: {{ vehicleLabel }}</div>
-        <div>Data/Hora: {{ formatDMY(date) }} {{ time || '—' }}</div>
       </div>
     </div>
   </div>
@@ -166,6 +231,7 @@ export class SchedulePage implements OnInit {
   modelId!: number;
   makeName!: string;
   modelName!: string;
+  vehicleYear: number | null = null;
 
   date = todayISO();
   time = "";
@@ -177,6 +243,10 @@ export class SchedulePage implements OnInit {
   customerEmail = "";
   plate = "";
   notes = "";
+
+  minDate: string = todayISO();
+
+  isSubmitting = false;
 
   // calendário
   calOpen = false;
@@ -191,7 +261,13 @@ export class SchedulePage implements OnInit {
   ) {}
 
   get serviceLabel() { return this.serviceType === "WASH_FULL" ? "Lavagem Completa" : "Revisão"; }
-  get vehicleLabel() { return `${this.makeName} ${this.modelName}`; }
+  
+  get vehicleLabel() {
+    return this.vehicleYear
+      ? `${this.makeName} ${this.modelName} ${this.vehicleYear}`
+      : `${this.makeName} ${this.modelName}`;
+  }
+
   get displayDate() { return formatDMY(this.date); }
   formatDMY = formatDMY;
 
@@ -209,6 +285,8 @@ export class SchedulePage implements OnInit {
   }
 
   ngOnInit() {
+    this.minDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
     const d = this.store.get();
     if (!d.serviceType || !d.makeId || !d.modelId || !d.makeName || !d.modelName) {
       this.router.navigateByUrl("/");
@@ -243,7 +321,14 @@ export class SchedulePage implements OnInit {
     else this.viewM0 += 1;
   }
 
+  isPast(iso: string): boolean {
+    return !this.isTodayOrFuture(iso);
+  }
+
   pickDate(iso: string) {
+    // bloqueia datas passadas (defesa extra)
+    if (!this.isTodayOrFuture(iso)) return;
+
     this.date = iso;
     this.time = "";
     this.store.set({ date: this.date, time: "" });
@@ -265,19 +350,79 @@ export class SchedulePage implements OnInit {
     this.store.set({ time: t });
   }
 
-  canConfirm() {
-    return !!this.date && !!this.time
-      && this.customerName.trim().length >= 2
-      && this.customerPhone.trim().length >= 6
-      && this.customerEmail.includes("@");
+  private normalizePhone(v: string): string {
+    return (v ?? "").replace(/[^\d+]/g, "").trim();
+  }
+
+  private isValidEmail(v: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v ?? "").trim());
+  }
+
+  private isValidPhonePT(v: string): boolean {
+    const p = this.normalizePhone(v);
+    return /^(?:\+351)?9\d{8}$/.test(p);
+  }
+
+  private isValidDateISO(v: string): boolean {
+    // esperado: YYYY-MM-DD
+    return /^\d{4}-\d{2}-\d{2}$/.test((v ?? "").trim());
+  }
+
+  private isValidTime(v: string): boolean {
+    // esperado: HH:mm
+    if (!/^\d{2}:\d{2}$/.test((v ?? "").trim())) return false;
+    const [hh, mm] = v.split(":").map(Number);
+    return hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59;
+  }
+
+  private isTodayOrFuture(dateIso: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return false;
+    const [y, m, d] = dateIso.split("-").map(Number);
+    const picked = new Date(y, m - 1, d);
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return picked >= todayMidnight;
+  }
+
+  getConfirmError(): string | null {
+    if (!this.serviceType) return "Seleciona o serviço.";
+    if (!this.makeId) return "Seleciona a marca.";
+    if (!this.modelId) return "Seleciona o modelo.";
+
+    if (!this.isValidDateISO(this.date)) return "Seleciona uma data válida.";
+    if (!this.isTodayOrFuture(this.date)) return "Não podes marcar em datas anteriores a hoje.";
+    if (!this.isValidTime(this.time)) return "Seleciona uma hora.";
+
+    if (!this.customerName || this.customerName.trim().length < 2) return "Preenche o nome (mín. 2 caracteres).";
+    if (!this.isValidPhonePT(this.customerPhone)) return "Telemóvel inválido (ex: 912345678 ou +351912345678).";
+    if (!this.isValidEmail(this.customerEmail)) return "Email inválido.";
+
+    return null;
+  }
+
+  canConfirm(): boolean {
+    return !this.isSubmitting && this.getConfirmError() === null;
+  }
+
+  get confirmTooltip(): string {
+    return this.getConfirmError() ?? "";
   }
 
   confirm() {
+    const err = this.getConfirmError();
+    if (err) return;
+
+    this.isSubmitting = true;
+
+    this.customerEmail = (this.customerEmail ?? "").trim().toLowerCase();
+    this.customerPhone = this.normalizePhone(this.customerPhone ?? "");
+
     const payload = {
       serviceType: this.serviceType,
       makeId: this.makeId,
       modelId: this.modelId,
-      date: this.date,      // continua a enviar ISO para a API
+      vehicleYear: this.vehicleYear ?? undefined,
+      date: this.date,
       time: this.time,
       customerName: this.customerName.trim(),
       customerPhone: this.customerPhone.trim(),
@@ -289,6 +434,7 @@ export class SchedulePage implements OnInit {
     this.http.post<{ bookingId: string }>(`${API}/api/bookings`, payload)
       .subscribe({
         next: () => {
+          this.isSubmitting = false;
           this.store.set({
             customerName: payload.customerName,
             customerPhone: payload.customerPhone,
@@ -298,8 +444,9 @@ export class SchedulePage implements OnInit {
           });
           this.router.navigateByUrl("/success");
         },
-        error: (err) => {
-          alert(err?.error?.error || "Erro ao confirmar.");
+        error: (err2) => {
+          this.isSubmitting = false;
+          alert(err2?.error?.error || "Erro ao confirmar.");
           this.loadSlots();
         }
       });

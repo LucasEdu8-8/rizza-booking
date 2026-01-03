@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /confirm
+Disallow: /success
+Sitemap: https://booking.rizzagroup.com/sitemap.xml
