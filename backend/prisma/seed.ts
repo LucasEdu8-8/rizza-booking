@@ -24,6 +24,12 @@ async function main() {
         { name: "Classe C", imageKey: "mercedes_classec" },
         { name: "Classe E", imageKey: "mercedes_classee" }
       ]
+    },
+    {
+      name: "Outro",
+      models: [
+        { name: "Outro", imageKey: "outro" }
+      ]
     }
   ];
 

@@ -298,9 +298,11 @@ export class SchedulePage implements OnInit {
     this.modelId = d.modelId;
     this.makeName = d.makeName;
     this.modelName = d.modelName;
+    this.vehicleYear = typeof d.vehicleYear === "number" ? d.vehicleYear : null;
 
     if (d.date) this.date = d.date;
     if (d.time) this.time = d.time;
+    if (d.notes) this.notes = d.notes;
 
     const { y, m0 } = parseISO(this.date);
     this.viewY = y; this.viewM0 = m0;
@@ -341,7 +343,8 @@ export class SchedulePage implements OnInit {
   }
 
   loadSlots() {
-    this.http.get<{ date: string; slots: Slot[] }>(`${API}/api/availability?date=${this.date}`)
+    const dateParam = formatDMY(this.date);
+    this.http.get<{ date: string; slots: Slot[] }>(`${API}/api/availability?date=${dateParam}`)
       .subscribe(r => this.slots = r.slots);
   }
 
@@ -422,7 +425,7 @@ export class SchedulePage implements OnInit {
       makeId: this.makeId,
       modelId: this.modelId,
       vehicleYear: this.vehicleYear ?? undefined,
-      date: this.date,
+      date: formatDMY(this.date),
       time: this.time,
       customerName: this.customerName.trim(),
       customerPhone: this.customerPhone.trim(),

@@ -22,7 +22,7 @@ model VehicleMake {
   id        Int            @id @default(autoincrement())
   name      String         @unique
   models    VehicleModel[]
-  bookings  Booking[] // <-- inverso
+  bookings  Booking[]
   createdAt DateTime       @default(now())
 }
 
@@ -40,7 +40,7 @@ model VehicleModel {
   viTrim    String?
 
   make      VehicleMake @relation(fields: [makeId], references: [id], onDelete: Cascade)
-  bookings  Booking[] // <-- inverso obrigatório
+  bookings  Booking[]
   createdAt DateTime    @default(now())
 
   @@unique([makeId, name])
@@ -51,7 +51,7 @@ model Booking {
   serviceType   ServiceType
   makeId        Int
   modelId       Int
-  vehicleYear   Int?           
+  vehicleYear   Int?
 
   date          DateTime
   time          String

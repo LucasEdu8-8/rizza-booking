@@ -22,6 +22,9 @@ export const env = {
   MAIL_FROM: process.env.MAIL_FROM ?? "RIZZA <no-reply@example.com>",
   MAIL_BCC_INTERNAL: process.env.MAIL_BCC_INTERNAL ?? "",
 
+  ADMIN_USER: process.env.ADMIN_USER ?? "",
+  ADMIN_PASS: process.env.ADMIN_PASS ?? "",
+
   PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? "",   // ex: https://api.rizzagroup.com
   FRONTEND_URL: process.env.FRONTEND_URL ?? "",         // ex: https://booking.rizzagroup.com
   CONFIRM_TOKEN_MINUTES: Number(process.env.CONFIRM_TOKEN_MINUTES ?? "30"),

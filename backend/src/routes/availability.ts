@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { prisma } from "../db.js";
 import { buildSlots } from "../utils/slots.js";
+import { parseDateInput } from "../utils/date.js";
 
 export async function availabilityRoutes(app: FastifyInstance) {
   app.get("/api/availability", async (req) => {
@@ -8,7 +9,8 @@ export async function availabilityRoutes(app: FastifyInstance) {
     const dateStr = String(q.date ?? "");
     if (!dateStr) return { date: null, slots: [] };
 
-    const date = new Date(`${dateStr}T00:00:00.000Z`);
+    const date = parseDateInput(dateStr);
+    if (!date) return { date: null, slots: [] };
     const allSlots = buildSlots();
 
     const now = new Date();
