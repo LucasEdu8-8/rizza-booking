@@ -99,6 +99,7 @@ type Model = { id: number; name: string; makeId: number; imageKey: string };
               [options]="makeOptions"
               placeholder="Marca"
               [disabled]="useOther"
+              [loading]="isLoadingMakes"
               [maxResults]="12"
               [minQueryLength]="1"
               matchMode="contains"
@@ -112,6 +113,7 @@ type Model = { id: number; name: string; makeId: number; imageKey: string };
               [options]="modelOptions"
               placeholder="Modelo"
               [disabled]="useOther || !makeId"
+              [loading]="isLoadingModels"
               [maxResults]="12"
               [minQueryLength]="1"
               matchMode="contains"
@@ -177,6 +179,9 @@ export class VehicleSelectPage implements OnInit, OnDestroy {
   makeName: string | null = null;
   modelName: string | null = null;
 
+  isLoadingMakes = false;
+  isLoadingModels = false;
+
   years: number[] = [];
   vehicleYearInput = "";
   otherNotes = "";
@@ -208,32 +213,40 @@ export class VehicleSelectPage implements OnInit, OnDestroy {
   }
 
   private loadMakes() {
+    this.isLoadingMakes = true;
     this.http.get<{ makes: Make[] }>(`${API}/api/vehicles/makes`)
-      .subscribe(r => {
-        this.makes = r.makes ?? [];
-        this.makeOptions = this.makes.map(m => m.name);
+      .subscribe({
+        next: (r) => {
+          this.makes = r.makes ?? [];
+          this.makeOptions = this.makes.map(m => m.name);
 
-        const match = this.matchMake(this.makeInput, this.makeId);
-        if (match) {
-          this.makeId = match.id;
-          this.makeName = match.name;
-          this.makeInput = match.name;
-          const isOther = this.normalizeText(match.name) === "outro";
-          if (isOther) {
-            this.useOther = true;
-            this.fetchModels(match.id, "Outro", null);
+          const match = this.matchMake(this.makeInput, this.makeId);
+          if (match) {
+            this.makeId = match.id;
+            this.makeName = match.name;
+            this.makeInput = match.name;
+            const isOther = this.normalizeText(match.name) === "outro";
+            if (isOther) {
+              this.useOther = true;
+              this.fetchModels(match.id, "Outro", null);
+            } else {
+              this.useOther = false;
+              this.fetchModels(match.id, this.modelInput, this.modelId);
+            }
           } else {
-            this.useOther = false;
-            this.fetchModels(match.id, this.modelInput, this.modelId);
+            this.makeId = null;
+            this.makeName = null;
+            this.modelId = null;
+            this.modelName = null;
+            this.modelInput = "";
+            this.modelOptions = [];
+            this.models = [];
+            this.isLoadingModels = false;
           }
-        } else {
-          this.makeId = null;
-          this.makeName = null;
-          this.modelId = null;
-          this.modelName = null;
-          this.modelInput = "";
-          this.modelOptions = [];
-          this.models = [];
+          this.isLoadingMakes = false;
+        },
+        error: () => {
+          this.isLoadingMakes = false;
         }
       });
   }
@@ -271,6 +284,7 @@ export class VehicleSelectPage implements OnInit, OnDestroy {
     this.modelInput = "";
     this.models = [];
     this.modelOptions = [];
+    this.isLoadingModels = false;
 
     if (this.makeId !== null) {
       this.fetchModels(this.makeId, this.useOther ? "Outro" : null, null);
@@ -287,20 +301,27 @@ export class VehicleSelectPage implements OnInit, OnDestroy {
   }
 
   fetchModels(makeId: number, keepModelInput: string | null, keepModelId: number | null) {
+    this.isLoadingModels = true;
     this.http.get<{ models: Model[] }>(`${API}/api/vehicles/models?makeId=${makeId}`)
-      .subscribe(r => {
-        this.models = r.models ?? [];
-        this.modelOptions = this.models.map(m => m.name);
+      .subscribe({
+        next: (r) => {
+          this.models = r.models ?? [];
+          this.modelOptions = this.models.map(m => m.name);
 
-        const match = this.matchModel(keepModelInput ?? "", keepModelId);
-        if (match) {
-          this.modelId = match.id;
-          this.modelName = match.name;
-          this.modelInput = match.name;
-        } else {
-          this.modelId = null;
-          this.modelName = null;
-          this.modelInput = "";
+          const match = this.matchModel(keepModelInput ?? "", keepModelId);
+          if (match) {
+            this.modelId = match.id;
+            this.modelName = match.name;
+            this.modelInput = match.name;
+          } else {
+            this.modelId = null;
+            this.modelName = null;
+            this.modelInput = "";
+          }
+          this.isLoadingModels = false;
+        },
+        error: () => {
+          this.isLoadingModels = false;
         }
       });
   }
@@ -341,6 +362,7 @@ export class VehicleSelectPage implements OnInit, OnDestroy {
         this.makeId = null;
         this.makeName = null;
         this.makeInput = "Outro";
+        this.isLoadingModels = false;
       }
     } else {
       this.makeId = null;
@@ -351,6 +373,7 @@ export class VehicleSelectPage implements OnInit, OnDestroy {
       this.modelInput = "";
       this.modelOptions = [];
       this.models = [];
+      this.isLoadingModels = false;
     }
   }
 

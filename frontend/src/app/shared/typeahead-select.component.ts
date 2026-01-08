@@ -21,8 +21,12 @@ import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, QueryLis
       (keydown.escape)="close()"
     />
 
+    <div *ngIf="loading" class="typeahead-loading">
+      <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+    </div>
+
     <div
-      *ngIf="isOpen && queryValue.length >= minQueryLength"
+      *ngIf="isOpen && !loading && queryValue.length >= minQueryLength"
       class="typeahead-list"
       role="listbox"
     >
@@ -46,6 +50,7 @@ export class TypeaheadSelectComponent implements OnChanges {
   @Input() placeholder = "";
   @Input() disabled = false;
   @Input() value = "";
+  @Input() loading = false;
   @Input() minQueryLength = 1;
   @Input() maxResults = 12;
   @Input() matchMode: "startsWith" | "contains" = "contains";
@@ -55,30 +60,52 @@ export class TypeaheadSelectComponent implements OnChanges {
   filteredOptions: string[] = [];
   queryValue = "";
   isOpen = false;
+  isFocused = false;
   activeIndex = -1;
   @ViewChildren("optionEl") optionEls!: QueryList<ElementRef<HTMLButtonElement>>;
 
   private blurTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes.options || changes.value) {
+    if (changes.loading && this.loading) {
+      this.isOpen = false;
+      this.filteredOptions = [];
+      return;
+    }
+
+    if (changes.options || changes.value || changes.loading) {
       this.updateFiltered(this.value);
+      if (this.isFocused && !this.loading && this.queryValue.length >= this.minQueryLength) {
+        this.isOpen = true;
+      }
     }
   }
 
   onInput(event: Event) {
     const next = (event.target as HTMLInputElement).value;
     this.valueChange.emit(next);
+    if (this.loading) {
+      this.queryValue = (next ?? "").trim();
+      this.filteredOptions = [];
+      this.isOpen = false;
+      return;
+    }
     this.isOpen = true;
     this.updateFiltered(next);
   }
 
   onFocus() {
+    this.isFocused = true;
+    if (this.loading) {
+      this.isOpen = false;
+      return;
+    }
     this.isOpen = true;
     this.updateFiltered(this.value);
   }
 
   onBlur() {
+    this.isFocused = false;
     if (this.blurTimer) clearTimeout(this.blurTimer);
     this.blurTimer = setTimeout(() => {
       this.isOpen = false;
@@ -96,6 +123,7 @@ export class TypeaheadSelectComponent implements OnChanges {
   }
 
   onKeyDown(event: KeyboardEvent) {
+    if (this.loading) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       this.isOpen = true;

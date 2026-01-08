@@ -49,21 +49,57 @@ function htmlEscape(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
-function ensureBasicAuth(req: any, reply: any): boolean {
-  if (!env.ADMIN_USER || !env.ADMIN_PASS) return true;
+const ADMIN_COOKIE = "rizza_admin";
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
-  const auth = String(req.headers?.authorization ?? "");
-  if (!auth.startsWith("Basic ")) {
-    reply.code(401).header("WWW-Authenticate", "Basic");
-    return false;
+function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  const parts = header.split(";");
+  for (const part of parts) {
+    const [rawKey, ...rest] = part.trim().split("=");
+    if (!rawKey) continue;
+    out[rawKey] = rest.join("=");
   }
+  return out;
+}
 
-  const decoded = Buffer.from(auth.slice(6), "base64").toString("utf-8");
-  const [user, pass] = decoded.split(":");
-  if (user === env.ADMIN_USER && pass === env.ADMIN_PASS) return true;
+function createSessionToken(secret: string): string {
+  const ts = Date.now().toString();
+  const sig = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+  return `${ts}.${sig}`;
+}
 
-  reply.code(401).header("WWW-Authenticate", "Basic");
-  return false;
+function verifySessionToken(token: string, secret: string): boolean {
+  const [tsStr, sig] = token.split(".");
+  if (!tsStr || !sig) return false;
+  if (!/^\d+$/.test(tsStr)) return false;
+
+  const ts = Number(tsStr);
+  if (!Number.isFinite(ts)) return false;
+  if (Date.now() - ts > SESSION_TTL_MS) return false;
+
+  const expected = crypto.createHmac("sha256", secret).update(tsStr).digest("hex");
+  if (expected.length !== sig.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+}
+
+function isAdminAuthed(req: any): boolean {
+  if (!env.ADMIN_PASS) return true;
+  const cookies = parseCookies(String(req.headers?.cookie ?? ""));
+  const token = cookies[ADMIN_COOKIE];
+  if (!token) return false;
+  return verifySessionToken(token, env.ADMIN_PASS);
+}
+
+function setAdminCookie(reply: any, token: string, req: any) {
+  const proto = String(req.headers?.["x-forwarded-proto"] ?? "");
+  const secure = proto === "https";
+  const maxAge = Math.floor(SESSION_TTL_MS / 1000);
+  const cookie =
+    `${ADMIN_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}` +
+    (secure ? "; Secure" : "");
+  reply.header("Set-Cookie", cookie);
 }
 
 export async function bookingsRoutes(app: FastifyInstance) {
@@ -198,7 +234,10 @@ export async function bookingsRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/bookings/export.csv", async (req, reply) => {
-    if (!ensureBasicAuth(req, reply)) return;
+    if (!isAdminAuthed(req)) {
+      reply.code(401);
+      return { error: "UNAUTHORIZED" };
+    }
 
     const bookings = await prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
@@ -254,8 +293,160 @@ export async function bookingsRoutes(app: FastifyInstance) {
       .send(csv);
   });
 
+  app.get("/admin/login", async (req, reply) => {
+    if (isAdminAuthed(req)) {
+      reply.redirect("/admin/bookings");
+      return;
+    }
+
+    const logoBase = (env.FRONTEND_URL || "https://booking.rizzagroup.com").replace(/\/+$/, "");
+    const logoUrl = `${logoBase}/assets/brand/rizza-logo.png`;
+
+    const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Login</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap");
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        font-family: "Space Grotesk", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+        background: radial-gradient(1200px 600px at 50% -20%, #1a1c22 0%, #0b0b0b 55%, #070707 100%);
+        color: #f1f1f1;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        width: min(440px, 92vw);
+        background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        border: 1px solid #1c1c1c;
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+      }
+      .logo {
+        display: block;
+        width: min(240px, 60vw);
+        margin: 0 auto 14px;
+        filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
+      }
+      .title {
+        font-size: 13px;
+        letter-spacing: .32em;
+        text-transform: uppercase;
+        margin: 0 0 10px;
+        color: #b9b9b9;
+        text-align: center;
+      }
+      .subtitle {
+        margin: 0 0 16px;
+        color: #9aa2aa;
+        font-size: 12px;
+        text-align: center;
+      }
+      label { display:block; font-size:12px; color:#b9b9b9; margin-bottom:6px; }
+      input {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #1c1c1c;
+        background: #0a0a0a;
+        color: #f1f1f1;
+        outline: none;
+      }
+      input:focus { border-color: #6a7077; box-shadow: 0 0 0 3px rgba(191,197,204,0.12); }
+      button {
+        width: 100%;
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #6a7077;
+        background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+        color: #f1f1f1;
+        cursor: pointer;
+        font-weight: 700;
+        letter-spacing: .08em;
+      }
+      button:disabled { opacity: .6; cursor: not-allowed; }
+      .error { margin-top:10px; color:#ffb4b4; font-size:12px; min-height:16px; text-align:center; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img class="logo" src="${logoUrl}" alt="RIZZA">
+      <div class="title">Admin</div>
+      <div class="subtitle">Restricted access</div>
+      <form id="loginForm">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required autofocus />
+        <button id="submitBtn" type="submit">Enter</button>
+        <div id="error" class="error"></div>
+      </form>
+    </div>
+
+    <script>
+      const form = document.getElementById("loginForm");
+      const error = document.getElementById("error");
+      const password = document.getElementById("password");
+      const submitBtn = document.getElementById("submitBtn");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        error.textContent = "";
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Checking...";
+        const res = await fetch("/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: password.value || "" })
+        });
+        if (res.ok) {
+          window.location.href = "/admin/bookings";
+          return;
+        }
+        error.textContent = "Invalid password.";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Enter";
+      });
+    </script>
+  </body>
+</html>`;
+
+    reply
+      .header("Content-Type", "text/html; charset=utf-8")
+      .send(html);
+  });
+
+  app.post("/admin/login", async (req, reply) => {
+    if (!env.ADMIN_PASS) {
+      reply.code(400);
+      return { ok: false, error: "ADMIN_PASS not set" };
+    }
+
+    const body = (req.body as any) ?? {};
+    const password = String(body.password ?? "");
+    if (password !== env.ADMIN_PASS) {
+      reply.code(401);
+      return { ok: false };
+    }
+
+    const token = createSessionToken(env.ADMIN_PASS);
+    setAdminCookie(reply, token, req);
+    return { ok: true };
+  });
+
   app.get("/admin/bookings", async (req, reply) => {
-    if (!ensureBasicAuth(req, reply)) return;
+    if (!isAdminAuthed(req)) {
+      reply.redirect("/admin/login");
+      return;
+    }
 
     const bookings = await prisma.booking.findMany({
       orderBy: { createdAt: "desc" },
